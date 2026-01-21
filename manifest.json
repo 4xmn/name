@@ -1,7 +1,7 @@
 {
   "name": "MilanSwapper",
-  "description": "Visual name swap for Revenge",
-  "author": "milan",
-  "version": "1.0.0",
-  "main": "index.js"
+  "description": "Visual name swap",
+  "author": "4xmn",
+  "main": "index.js",
+  "version": "1.0.0"
 }
