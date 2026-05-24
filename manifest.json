@@ -1,7 +1,7 @@
 {
-  "name": "MilanSwapper",
-  "description": "funny swap",
-  "author": "4xmn",
+  "name": "UserSwapperLite",
+  "version": "1.0.0",
+  "description": "Simple username text swapper",
   "main": "index.js",
-  "version": "1.0.0"
+  "author": "milan"
 }
