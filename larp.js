@@ -499,6 +499,17 @@
   var __larpInsideUserStoreWrap = false;
   var __larpProfileStorePatched = {};
   var UserStoreRef = null;
+  var __larpCurrentUserId = null;
+  var __larpCurrentUserUnsub = null;
+
+  function updateCurrentUserId() {
+    try {
+      var u = UserStoreRef && typeof UserStoreRef.getCurrentUser === "function" ? UserStoreRef.getCurrentUser() : null;
+      __larpCurrentUserId = u && u.id != null ? String(u.id) : null;
+    } catch (e) {
+      __larpCurrentUserId = null;
+    }
+  }
 
   var __larpGetUserCache = new Map();
   var __larpGetUserCacheQueue = [];
@@ -636,12 +647,8 @@
     if (!user) return false;
     if (getUsernameSpoofReplace(user)) return true;
     if (parseAccountDateIsoMs(storage.spoofAccountDateIso) == null) return false;
-    var cur =
-      UserStoreRef &&
-      UserStoreRef.getCurrentUser &&
-      UserStoreRef.getCurrentUser();
-    if (!cur || cur.id == null || user.id == null) return false;
-    return String(user.id) === String(cur.id);
+    if (__larpCurrentUserId == null || user.id == null) return false;
+    return String(user.id) === __larpCurrentUserId;
   }
 
   function buildUserProxy(user) {
@@ -650,54 +657,44 @@
 
     var proxy = new Proxy(user, {
       get: function (t, p, recv) {
-        var cur =
-          UserStoreRef &&
-          UserStoreRef.getCurrentUser &&
-          UserStoreRef.getCurrentUser();
         var spoofCreatedMs = parseAccountDateIsoMs(storage.spoofAccountDateIso);
         if (
           spoofCreatedMs != null &&
-          cur &&
-          cur.id != null &&
+          __larpCurrentUserId != null &&
           t &&
           t.id != null &&
-          String(t.id) === String(cur.id)
+          String(t.id) === __larpCurrentUserId
         ) {
           if (p === "createdTimestamp" || p === "createdAtTimestamp") return spoofCreatedMs;
           if (p === "createdAt" || p === "created_at") return new Date(spoofCreatedMs);
         }
 
-        if (!getUsernameSpoofReplace(t)) return Reflect.get(t, p, recv);
+        if (!getUsernameSpoofReplace(t)) return Reflect.get(t, p, t);
         var replace = getUsernameSpoofReplace(t);
 
         if (p === "username") return replace;
 
         if (p === "tag") {
-          var tag = Reflect.get(t, "tag", recv);
+          var tag = Reflect.get(t, "tag", t);
           if (typeof tag === "string") {
             var hash = tag.indexOf("#");
             if (hash !== -1) return replace + tag.slice(hash);
           }
         }
 
-        return Reflect.get(t, p, recv);
+        return Reflect.get(t, p, t);
       },
       ownKeys: function (t) {
         return Reflect.ownKeys(t);
       },
       getOwnPropertyDescriptor: function (t, p) {
-        var cur =
-          UserStoreRef &&
-          UserStoreRef.getCurrentUser &&
-          UserStoreRef.getCurrentUser();
         var spoofCreatedMs = parseAccountDateIsoMs(storage.spoofAccountDateIso);
         if (
           spoofCreatedMs != null &&
-          cur &&
-          cur.id != null &&
+          __larpCurrentUserId != null &&
           t &&
           t.id != null &&
-          String(t.id) === String(cur.id)
+          String(t.id) === __larpCurrentUserId
         ) {
           if (p === "createdTimestamp" || p === "createdAtTimestamp") {
             return { configurable: true, enumerable: true, value: spoofCreatedMs };
@@ -739,6 +736,11 @@
     __larpProfileStorePatched = {};
     clearLarpGetUserCache();
     wrapProxyByUser = new WeakMap();
+    __larpCurrentUserId = null;
+    if (typeof __larpCurrentUserUnsub === "function") {
+      try { __larpCurrentUserUnsub(); } catch (_) {}
+      __larpCurrentUserUnsub = null;
+    }
   }
 
   function patchUsername() {
@@ -746,6 +748,10 @@
       var UserStore = findByStoreName("UserStore");
       UserStoreRef = UserStore || null;
       if (!UserStore || typeof UserStore.getCurrentUser !== "function") return;
+      updateCurrentUserId();
+      if (typeof UserStore.addChangeListener === "function") {
+        __larpCurrentUserUnsub = UserStore.addChangeListener(updateCurrentUserId);
+      }
 
       unpatches.push(after("getCurrentUser", UserStore, function (_args, ret) {
         if (__larpInsideUserStoreWrap) return ret;
@@ -814,12 +820,7 @@
             unpatches.push(
               after(k, exp, function (args, ret) {
                 var ms = parseAccountDateIsoMs(storage.spoofAccountDateIso);
-                if (ms == null) return ret;
-                var cur =
-                  UserStoreRef &&
-                  UserStoreRef.getCurrentUser &&
-                  UserStoreRef.getCurrentUser();
-                if (!cur || cur.id == null) return ret;
+                if (ms == null || __larpCurrentUserId == null) return ret;
                 var sid = null;
                 if (args && args.length) {
                   var a0 = args[0];
@@ -831,7 +832,7 @@
                     if (/^\d{10,30}$/.test(ids)) sid = ids;
                   }
                 }
-                if (sid != null && String(sid) === String(cur.id)) return ms;
+                if (sid != null && String(sid) === __larpCurrentUserId) return ms;
                 return ret;
               })
             );
@@ -861,19 +862,14 @@
           unpatches.push(
             after(mn, S, function (args, ret) {
               var ms = parseAccountDateIsoMs(storage.spoofAccountDateIso);
-              if (ms == null || ret == null) return ret;
+              if (ms == null || ret == null || __larpCurrentUserId == null) return ret;
               var a0 = args && args[0];
               var uid =
                 a0 != null && typeof a0 === "object"
                   ? a0.id || a0.userId || (a0.user && (a0.user.id || a0.user.userId))
                   : a0;
               if (uid == null) return ret;
-              var cur =
-                UserStoreRef &&
-                UserStoreRef.getCurrentUser &&
-                UserStoreRef.getCurrentUser();
-              if (!cur || cur.id == null) return ret;
-              if (String(uid) !== String(cur.id)) return ret;
+              if (String(uid) !== __larpCurrentUserId) return ret;
               if (typeof ret !== "object") return ret;
               try {
                 var d = new Date(ms);
