@@ -1,6 +1,14 @@
 {
-  "name": "My Larp Plugin",
-  "description": "A custom spoofing plugin.",
-  "authors": [{ "name": "milan" }],
-  "main": "larp.js"
+  "name": "Larp",
+  "description": "Client-side profile badge and username spoofing for Discord",
+  "authors": [
+    {
+      "name": "milan"
+    }
+  ],
+  "main": "larp.js",
+  "hash": "566B8A37F41E2E0D5B5404C4E781E376E70D70D928FB446B742FDB20913D7572",
+  "vendetta": {
+    "icon": "StarBadge"
+  }
 }
