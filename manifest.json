@@ -1,7 +1,6 @@
 {
-  "name": "UserSwapperLite",
-  "version": "1.0.0",
-  "description": "Simple username text swapper",
-  "main": "index.js",
-  "author": "milan"
+  "name": "My Larp Plugin",
+  "description": "A custom spoofing plugin.",
+  "authors": [{ "name": "milan" }],
+  "main": "larp.js"
 }
